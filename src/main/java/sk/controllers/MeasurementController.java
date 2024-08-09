@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import sk.dto.Measurement;
 import sk.dto.MeasurementRequest;
 import sk.enums.MeasurementType;
+import sk.services.MeasurementService;
 
 import java.util.List;
 import java.util.Map;
@@ -17,10 +18,10 @@ import java.util.stream.Collectors;
 @RequestMapping("/v1/measurements")
 public class MeasurementController {
 
-    private final sk.service.MeasurementService measurementService;
+    private final MeasurementService measurementService;
 
     @Autowired
-    public MeasurementController(sk.service.MeasurementService measurementService) {
+    public MeasurementController(MeasurementService measurementService) {
         this.measurementService = measurementService;
     }
 

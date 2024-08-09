@@ -1,4 +1,4 @@
-package sk.service;
+package sk.services;
 
 import org.springframework.stereotype.Service;
 import sk.dto.Measurement;

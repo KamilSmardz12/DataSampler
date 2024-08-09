@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 @Service
 public abstract class CommonProcessor {
 
@@ -30,14 +31,18 @@ public abstract class CommonProcessor {
 
     protected Map<MeasurementType, List<Measurement>> groupAndProcessMeasurements(List<Measurement> measurements) {
         return measurements.stream()
-                .collect(Collectors.groupingBy(
-                        Measurement::getMeasurementType,
-                        () -> new EnumMap<>(MeasurementType.class),
-                        Collectors.collectingAndThen(
-                                Collectors.groupingBy(Measurement::getNearestFiveMinutesForward),
-                                collectMeasurements()
-                        )
-                ));
+                .collect(
+                        Collectors.groupingBy
+                                (
+                                        Measurement::getMeasurementType,
+                                        () -> new EnumMap<>(MeasurementType.class),
+                                        Collectors.collectingAndThen
+                                                (
+                                                        Collectors.groupingBy(Measurement::getNearestFiveMinutesForward),
+                                                        collectMeasurements()
+                                                )
+                                )
+                );
     }
 
     private Function<Map<Instant, List<Measurement>>, List<Measurement>> collectMeasurements() {

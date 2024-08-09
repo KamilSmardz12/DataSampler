@@ -1,8 +1,8 @@
 package sk.processor;
 
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import sk.dto.Measurement;
+import sk.dto.TreadTask;
 import sk.enums.MeasurementType;
 import sk.interfaces.MeasurementProcessor;
 
@@ -24,44 +24,51 @@ public class MultiThreadMeasurementProcessor extends CommonProcessor implements 
         this.executorService = Executors.newFixedThreadPool(MeasurementType.values().length);
     }
 
+    private static boolean canProcess(final List<Measurement> unsampledMeasurements) {
+        return unsampledMeasurements == null || unsampledMeasurements.isEmpty();
+    }
+
     @Override
-    public Map<MeasurementType, List<Measurement>> process(List<Measurement> unsampledMeasurements) {
+    public Map<MeasurementType, List<Measurement>> process(final List<Measurement> unsampledMeasurements) {
         return process(Instant.now(), unsampledMeasurements);
     }
 
     @Override
-    public Map<MeasurementType, List<Measurement>> process(Instant startOfSampling, List<Measurement> unsampledMeasurements) {
-        if (unsampledMeasurements == null || unsampledMeasurements.isEmpty()) {
+    public Map<MeasurementType, List<Measurement>> process(final Instant startOfSampling, final List<Measurement> unsampledMeasurements) {
+        if (canProcess(unsampledMeasurements))
             return Collections.emptyMap();
-        }
 
-        List<Measurement> updatedMeasurements = filterAndUpdateMeasurements(unsampledMeasurements, startOfSampling);
-        Map<MeasurementType, List<Measurement>> groupedMeasurements = groupAndProcessMeasurements(updatedMeasurements);
+        final List<Measurement> updatedMeasurements = filterAndUpdateMeasurements(unsampledMeasurements, startOfSampling);
+        final Map<MeasurementType, List<Measurement>> groupedMeasurements = groupAndProcessMeasurements(updatedMeasurements);
 
-        List<Callable<Map.Entry<MeasurementType, List<Measurement>>>> callables = groupedMeasurements.entrySet()
-                .stream()
-                .map(this::createTask)
-                .toList();
+        final List<Callable<TreadTask>> callables = createCallables(groupedMeasurements);
+        final List<Future<TreadTask>> futures = callables.stream()
+                .map(executorService::submit)
+                .collect(Collectors.toList());
 
-        List<Future<Map.Entry<MeasurementType, List<Measurement>>>> futures = new ArrayList<>();
-
-        callables.forEach(c -> futures.add(executorService.submit(c)));
-
-        Map<MeasurementType, List<Measurement>> result = getMeasurementTypeListMap(futures);
+        final Map<MeasurementType, List<Measurement>> result = getMeasurementTypeListMap(futures);
 
         shutdown();
 
         return result;
     }
 
-    private Callable<Map.Entry<MeasurementType, List<Measurement>>> createTask(Map.Entry<MeasurementType, List<Measurement>> entry) {
+    private List<Callable<TreadTask>> createCallables(final Map<MeasurementType, List<Measurement>> groupedMeasurements) {
+        return groupedMeasurements.entrySet()
+                .stream()
+                .map(TreadTask::from)
+                .map(this::createTask)
+                .toList();
+    }
+
+    private Callable<TreadTask> createTask(TreadTask treadTask) {
         return () -> {
-            List<Measurement> processedMeasurements = processMeasurements(entry.getValue());
-            return new AbstractMap.SimpleEntry<>(entry.getKey(), processedMeasurements);
+            List<Measurement> processedMeasurements = processMeasurements(treadTask.measurements());
+            return new TreadTask(treadTask.measurementType(), processedMeasurements);
         };
     }
 
-    private List<Measurement> processMeasurements(List<Measurement> measurements) {
+    private List<Measurement> processMeasurements(final List<Measurement> measurements) {
         return measurements
                 .stream()
                 .collect(Collectors.groupingBy(Measurement::getNearestFiveMinutesForward))
@@ -72,20 +79,28 @@ public class MultiThreadMeasurementProcessor extends CommonProcessor implements 
                 .collect(Collectors.toList());
     }
 
-    private Map<MeasurementType, List<Measurement>> getMeasurementTypeListMap(List<Future<Map.Entry<MeasurementType, List<Measurement>>>> futures) {
-        Map<MeasurementType, List<Measurement>> result = new EnumMap<>(MeasurementType.class);
+    private Map<MeasurementType, List<Measurement>> getMeasurementTypeListMap(final List<Future<TreadTask>> futures) {
+        return futures.stream()
+                .map(this::getResponseFromFuture)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect
+                        (Collectors.toMap
+                                (
+                                        TreadTask::measurementType,
+                                        TreadTask::measurements,
+                                        (oldValue, newValue) -> newValue,
+                                        () -> new EnumMap<>(MeasurementType.class)
+                                )
+                        );
+    }
 
-        futures.stream()
-                .map(future -> {
-                    try {
-                        return future.get();
-                    } catch (InterruptedException | ExecutionException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .forEach(entry -> result.put(entry.getKey(), entry.getValue()));
-
-        return result;
+    private Optional<TreadTask> getResponseFromFuture(Future<TreadTask> future) {
+        try {
+            return Optional.ofNullable(future.get());
+        } catch (InterruptedException | ExecutionException e) {
+            return Optional.empty();
+        }
     }
 
     private void shutdown() {
@@ -99,4 +114,5 @@ public class MultiThreadMeasurementProcessor extends CommonProcessor implements 
             Thread.currentThread().interrupt();
         }
     }
+
 }
