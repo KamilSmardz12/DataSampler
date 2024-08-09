@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(classes = MeasurementApplication.class)
 public class PerformanceTest {
 
-    private static final int DATA_SET_SIZE = 60_000_000; // Liczba rekordów w danych testowych
+    private static final int DATA_SET_SIZE = 60_000_000;
     private static List<Measurement> measurements;
 
     @BeforeAll

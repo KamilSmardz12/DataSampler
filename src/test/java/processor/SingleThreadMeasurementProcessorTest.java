@@ -47,8 +47,6 @@ public class SingleThreadMeasurementProcessorTest {
         Measurement expectedSpo2_1 = new Measurement(MeasurementType.SPO2,Instant.parse("2017-01-03T10:05:00Z"), Instant.parse("2017-01-03T10:05:00Z"), new BigDecimal("97.17"));
         Measurement expectedSpo2_2 = new Measurement(MeasurementType.SPO2, Instant.parse("2017-01-03T10:05:01Z"),Instant.parse("2017-01-03T10:10:00Z"), new BigDecimal("95.08"));
 
-        result.get(MeasurementType.TEMP).forEach(System.out::println);
-        result.get(MeasurementType.SPO2).forEach(System.out::println);
         assertAll(
                 () -> assertEquals(Arrays.asList(expectedTemp1, expectedTemp2), result.get(MeasurementType.TEMP)),
                 () -> assertEquals(Arrays.asList(expectedSpo2_1, expectedSpo2_2), result.get(MeasurementType.SPO2))
