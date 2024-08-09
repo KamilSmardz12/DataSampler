@@ -7,6 +7,7 @@ import org.springframework.util.StopWatch;
 import sk.MeasurementApplication;
 import sk.dto.Measurement;
 import sk.dto.MeasurementRequest;
+import sk.dto.Response;
 import sk.enums.MeasurementType;
 import sk.processor.MultiThreadMeasurementProcessor;
 import sk.processor.SingleThreadMeasurementProcessor;
@@ -16,7 +17,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -50,7 +50,7 @@ public class PerformanceTest {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
 
-        Map<MeasurementType, List<Measurement>> result = singleThreadService.processMeasurements(measurementRequest);
+        Response result = singleThreadService.processMeasurements(measurementRequest);
 
         stopWatch.stop();
 
@@ -67,7 +67,7 @@ public class PerformanceTest {
         StopWatch stopWatch = new StopWatch();
         stopWatch.start();
 
-        Map<MeasurementType, List<Measurement>> result = multiThreadService.processMeasurements(measurementRequest);
+        Response result = multiThreadService.processMeasurements(measurementRequest);
 
         stopWatch.stop();
 

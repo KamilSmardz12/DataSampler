@@ -1,18 +1,15 @@
 package sk.controllers;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.EntityModel;
 import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import sk.dto.Measurement;
 import sk.dto.MeasurementRequest;
+import sk.dto.MeasurementResponse;
+import sk.dto.Response;
 import sk.enums.MeasurementType;
 import sk.services.MeasurementService;
-
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/v1/measurements")
@@ -25,25 +22,54 @@ public class MeasurementController {
         this.measurementService = measurementService;
     }
 
-    @PostMapping("/process")
-    public CollectionModel<EntityModel<Measurement>> processMeasurements(@RequestBody MeasurementRequest measurementRequest) {
-        Map<MeasurementType, List<Measurement>> processedMeasurements = measurementService.processMeasurements(measurementRequest);
+    @GetMapping("/process")
+    public ResponseEntity<EntityModel<Response>> processMeasurements(@RequestBody MeasurementRequest measurementRequest) {
+        Response processedMeasurements = measurementService.processMeasurements(measurementRequest);
 
-        List<EntityModel<Measurement>> measurementResources = processedMeasurements.values().stream()
-                .flatMap(List::stream)
-                .map(this::toModel)
-                .collect(Collectors.toList());
+        EntityModel<Response> responseModel = EntityModel.of(processedMeasurements);
+        responseModel.add
+                (
+                        WebMvcLinkBuilder.linkTo
+                                        (
+                                                WebMvcLinkBuilder
+                                                        .methodOn(MeasurementController.class)
+                                                        .processMeasurements(measurementRequest)
+                                        )
+                                .withSelfRel()
+                );
 
-        return CollectionModel.of(measurementResources);
+        responseModel.add
+                (
+                        WebMvcLinkBuilder.linkTo
+                                        (
+                                                WebMvcLinkBuilder
+                                                        .methodOn(MeasurementController.class)
+                                                        .getMeasurementByTypeAndTimestamp(null, null)
+                                        )
+                                .withRel("getMeasurementByTypeAndTimestamp"));
+
+        return ResponseEntity.ok(responseModel);
     }
 
-    private EntityModel<Measurement> toModel(Measurement measurement) {
-        EntityModel<Measurement> model = EntityModel.of(measurement);
+    @GetMapping("/{type}/{timestamp}")
+    public ResponseEntity<EntityModel<MeasurementResponse>> getMeasurementByTypeAndTimestamp(
+            @PathVariable MeasurementType type,
+            @PathVariable String timestamp) {
+        MeasurementResponse measurement = findMeasurementByTypeAndTimestamp(type, timestamp);
+        if (measurement != null) {
+            return ResponseEntity.ok(toModel(measurement));
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    private EntityModel<MeasurementResponse> toModel(MeasurementResponse measurement) {
+        EntityModel<MeasurementResponse> model = EntityModel.of(measurement);
 
         model.add(WebMvcLinkBuilder.linkTo(
                         WebMvcLinkBuilder.methodOn(MeasurementController.class).getMeasurementByTypeAndTimestamp(
-                                measurement.getMeasurementType(),
-                                measurement.getTimestamp().toString()))
+                                measurement.measurementType(),
+                                measurement.nearestFiveMinutesForward().toString()))
                 .withSelfRel());
 
         model.add(WebMvcLinkBuilder.linkTo(
@@ -53,15 +79,9 @@ public class MeasurementController {
         return model;
     }
 
-    @GetMapping("/{type}/{timestamp}")
-    public EntityModel<Measurement> getMeasurementByTypeAndTimestamp(
-            @PathVariable MeasurementType type,
-            @PathVariable String timestamp) {
-        Measurement measurement = findMeasurementByTypeAndTimestamp(type, timestamp);
-        return toModel(measurement);
-    }
-
-    private Measurement findMeasurementByTypeAndTimestamp(MeasurementType type, String timestamp) {
+    // Null because that was not part of the task.
+    // I added this to show which way I was going and why I needed HATEOAS.
+    private MeasurementResponse findMeasurementByTypeAndTimestamp(MeasurementType type, String timestamp) {
         return null;
     }
 }

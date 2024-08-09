@@ -18,15 +18,18 @@ import java.util.stream.Collectors;
 public abstract class CommonProcessor {
 
     protected List<Measurement> filterAndUpdateMeasurements(List<Measurement> unsampledMeasurements, Instant startOfSampling) {
-        if (unsampledMeasurements == null || unsampledMeasurements.isEmpty()) {
+        if (canProcess(unsampledMeasurements))
             return Collections.emptyList();
-        }
 
         List<Measurement> filteredMeasurements = unsampledMeasurements.stream()
                 .filter(measurement -> measurement.getTimestamp().isAfter(startOfSampling))
                 .collect(Collectors.toList());
 
         return MeasurementUtils.updateRoundedTimestampsForward(filteredMeasurements);
+    }
+
+    protected boolean canProcess(final List<Measurement> unsampledMeasurements) {
+        return unsampledMeasurements == null || unsampledMeasurements.isEmpty();
     }
 
     protected Map<MeasurementType, List<Measurement>> groupAndProcessMeasurements(List<Measurement> measurements) {
@@ -48,8 +51,7 @@ public abstract class CommonProcessor {
     private Function<Map<Instant, List<Measurement>>, List<Measurement>> collectMeasurements() {
         return measurements -> measurements.values()
                 .stream()
-                .map(findLastMeasurement()
-                )
+                .map(findLastMeasurement())
                 .sorted()
                 .collect(Collectors.toList());
     }

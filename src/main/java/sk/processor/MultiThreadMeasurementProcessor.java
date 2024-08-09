@@ -1,5 +1,6 @@
 package sk.processor;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import sk.dto.Measurement;
 import sk.dto.TreadTask;
@@ -11,21 +12,21 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
+@Slf4j // it can be replaced to field and can be tested in unit tests
 @Service
 //@Primary
 public class MultiThreadMeasurementProcessor extends CommonProcessor implements MeasurementProcessor {
     private final ExecutorService executorService;
 
-    public MultiThreadMeasurementProcessor(final int threadPoolSize) {
-        this.executorService = Executors.newFixedThreadPool(threadPoolSize);
+    public MultiThreadMeasurementProcessor(final int maxThreadPoolSize) {
+        log.info(maxThreadPoolSize + " threads can be started");
+        this.executorService = Executors.newFixedThreadPool(maxThreadPoolSize);
     }
 
     public MultiThreadMeasurementProcessor() {
-        this.executorService = Executors.newFixedThreadPool(MeasurementType.values().length);
-    }
-
-    private static boolean canProcess(final List<Measurement> unsampledMeasurements) {
-        return unsampledMeasurements == null || unsampledMeasurements.isEmpty();
+        int maxThreadPoolSize = MeasurementType.values().length;
+        log.info(maxThreadPoolSize + " threads can be started");
+        this.executorService = Executors.newFixedThreadPool(maxThreadPoolSize);
     }
 
     @Override
@@ -54,8 +55,10 @@ public class MultiThreadMeasurementProcessor extends CommonProcessor implements 
     }
 
     private List<Callable<TreadTask>> createCallables(final Map<MeasurementType, List<Measurement>> groupedMeasurements) {
-        return groupedMeasurements.entrySet()
+        return groupedMeasurements
+                .entrySet()
                 .stream()
+                .peek(e -> log.info("A data type will be processed: " + e.getKey() + " in quantity " + e.getValue().size()))
                 .map(TreadTask::from)
                 .map(this::createTask)
                 .toList();
@@ -84,6 +87,7 @@ public class MultiThreadMeasurementProcessor extends CommonProcessor implements 
                 .map(this::getResponseFromFuture)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
+                .peek(treadTask -> log.info("Data type processed: " + treadTask.measurementType() + " in quantity " + treadTask.measurements().size()))
                 .collect
                         (Collectors.toMap
                                 (
@@ -99,19 +103,23 @@ public class MultiThreadMeasurementProcessor extends CommonProcessor implements 
         try {
             return Optional.ofNullable(future.get());
         } catch (InterruptedException | ExecutionException e) {
+            log.info("Something has gone wrong. with Future<TreadTask>: " + e.getMessage());
             return Optional.empty();
         }
     }
 
     private void shutdown() {
         executorService.shutdown();
+        log.info("The Executor was trying to be shut down.");
         try {
             if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
                 executorService.shutdownNow();
             }
+            log.info("Executor has been closed.");
         } catch (InterruptedException ex) {
             executorService.shutdownNow();
             Thread.currentThread().interrupt();
+            log.info("Executor has been closed.");
         }
     }
 

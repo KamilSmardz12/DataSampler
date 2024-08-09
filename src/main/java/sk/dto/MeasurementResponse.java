@@ -1,23 +1,27 @@
 package sk.dto;
 
-import lombok.*;
-import lombok.experimental.FieldDefaults;
 import sk.enums.MeasurementType;
 
-import java.util.List;
-import java.util.Map;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Comparator;
 
-@Getter
-@Setter
-@ToString
-@RequiredArgsConstructor
-@EqualsAndHashCode
-@FieldDefaults(makeFinal = true, level = AccessLevel.PRIVATE)
-public class MeasurementResponse {
-    private Map<MeasurementType, List<Measurement>> measurements;
+public record MeasurementResponse
+        (
+                Instant nearestFiveMinutesForward,
+                BigDecimal value,
+                MeasurementType measurementType
+        ) implements Comparable<MeasurementResponse> {
 
-    public MeasurementResponse() {
-        measurements = null;
+    @Override
+    public int compareTo(MeasurementResponse other) {
+        return Comparator.comparing
+                        (
+                                MeasurementResponse::nearestFiveMinutesForward,
+                                Comparator.nullsLast(Comparator.naturalOrder())
+                        )
+                .compare(this, other);
     }
+
 
 }
