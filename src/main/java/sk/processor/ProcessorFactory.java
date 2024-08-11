@@ -4,7 +4,7 @@ import org.springframework.stereotype.Service;
 import sk.interfaces.MeasurementProcessor;
 
 @Service
-public class SamplerFactory {
+public class ProcessorFactory {
 
     private static final int THREAD_THRESHOLD = 1000;
     private static final int RECORDS_PER_THREAD = 1000;
