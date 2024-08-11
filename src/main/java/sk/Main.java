@@ -2,7 +2,7 @@ package sk;
 
 import sk.dto.Measurement;
 import sk.enums.MeasurementType;
-import sk.processor.SamplerFactory;
+import sk.processor.ProcessorFactory;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -24,7 +24,7 @@ public class Main {
 
         Instant startOfSampling = Instant.parse("2017-01-03T10:00:00Z");
 
-        Map<MeasurementType, List<Measurement>> sampledData = SamplerFactory
+        Map<MeasurementType, List<Measurement>> sampledData = ProcessorFactory
                 .createSampler(measurements.size())
                 .process(startOfSampling, measurements);
 
