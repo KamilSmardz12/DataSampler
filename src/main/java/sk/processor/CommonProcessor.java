@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 public abstract class CommonProcessor {
 
     protected List<Measurement> filterAndUpdateMeasurements(List<Measurement> unsampledMeasurements, Instant startOfSampling) {
-        if (canProcess(unsampledMeasurements))
+        if (canNotProcess(unsampledMeasurements))
             return Collections.emptyList();
 
         List<Measurement> filteredMeasurements = unsampledMeasurements.stream()
@@ -28,7 +28,7 @@ public abstract class CommonProcessor {
         return MeasurementUtils.updateRoundedTimestampsForward(filteredMeasurements);
     }
 
-    protected boolean canProcess(final List<Measurement> unsampledMeasurements) {
+    protected boolean canNotProcess(final List<Measurement> unsampledMeasurements) {
         return unsampledMeasurements == null || unsampledMeasurements.isEmpty();
     }
 

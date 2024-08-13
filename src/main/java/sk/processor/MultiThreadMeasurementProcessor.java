@@ -36,7 +36,7 @@ public class MultiThreadMeasurementProcessor extends CommonProcessor implements 
 
     @Override
     public Map<MeasurementType, List<Measurement>> process(final Instant startOfSampling, final List<Measurement> unsampledMeasurements) {
-        if (canProcess(unsampledMeasurements))
+        if (canNotProcess(unsampledMeasurements))
             return Collections.emptyMap();
 
         final List<Measurement> updatedMeasurements = filterAndUpdateMeasurements(unsampledMeasurements, startOfSampling);
