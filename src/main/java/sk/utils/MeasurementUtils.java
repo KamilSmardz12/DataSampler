@@ -13,7 +13,8 @@ public class MeasurementUtils {
     }
 
     public static  List<Measurement> updateRoundedTimestampsForward(Collection<Measurement> measurements) {
-        return measurements.stream()
+        return measurements
+                .stream()
                 .map(measurement -> new Measurement(
                         measurement.getMeasurementType(),
                         measurement.getTimestamp(),

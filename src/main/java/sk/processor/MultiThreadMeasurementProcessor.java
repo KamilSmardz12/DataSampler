@@ -3,7 +3,7 @@ package sk.processor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import sk.dto.Measurement;
-import sk.dto.TreadTask;
+import sk.dto.ThreadTask;
 import sk.enums.MeasurementType;
 import sk.interfaces.MeasurementProcessor;
 
@@ -40,11 +40,15 @@ public class MultiThreadMeasurementProcessor extends CommonProcessor implements 
             return Collections.emptyMap();
 
         final List<Measurement> updatedMeasurements = filterAndUpdateMeasurements(unsampledMeasurements, startOfSampling);
-        final Map<MeasurementType, List<Measurement>> groupedMeasurements = groupAndProcessMeasurements(updatedMeasurements);
 
-        final List<Callable<TreadTask>> callables = createCallables(groupedMeasurements);
-        final List<Future<TreadTask>> futures = callables.stream()
-                .map(executorService::submit)
+        final Map<MeasurementType, List<Measurement>> measurementsByType = updatedMeasurements
+                .parallelStream()
+                .collect(Collectors.groupingBy(Measurement::getMeasurementType));
+
+        final List<Future<ThreadTask>> futures = measurementsByType.values()
+                .parallelStream()
+                .map(ThreadTask::new)
+                .map(task -> executorService.submit(() -> task.processMeasurements(findLastMeasurement())))
                 .collect(Collectors.toList());
 
         final Map<MeasurementType, List<Measurement>> result = getMeasurementTypeListMap(futures);
@@ -54,52 +58,25 @@ public class MultiThreadMeasurementProcessor extends CommonProcessor implements 
         return result;
     }
 
-    private List<Callable<TreadTask>> createCallables(final Map<MeasurementType, List<Measurement>> groupedMeasurements) {
-        return groupedMeasurements
-                .entrySet()
-                .stream()
-                .peek(e -> log.info("A data type will be processed: " + e.getKey() + " in quantity " + e.getValue().size()))
-                .map(TreadTask::from)
-                .map(this::createTask)
-                .toList();
+    private Map<MeasurementType, List<Measurement>> getMeasurementTypeListMap(final List<Future<ThreadTask>> futures) {
+        Map<MeasurementType, List<Measurement>> resultMap = new EnumMap<>(MeasurementType.class);
+
+        for (Future<ThreadTask> future : futures) {
+            getResponseFromFuture(future)
+                    .map(ThreadTask::measurements)
+                    .ifPresent(measurements -> {
+                        for (Measurement measurement : measurements) {
+                            resultMap
+                                    .computeIfAbsent(measurement.getMeasurementType(), k -> new ArrayList<>())
+                                    .add(measurement);
+                        }
+                    });
+        }
+
+        return resultMap;
     }
 
-    private Callable<TreadTask> createTask(TreadTask treadTask) {
-        return () -> {
-            List<Measurement> processedMeasurements = processMeasurements(treadTask.measurements());
-            return new TreadTask(treadTask.measurementType(), processedMeasurements);
-        };
-    }
-
-    private List<Measurement> processMeasurements(final List<Measurement> measurements) {
-        return measurements
-                .stream()
-                .collect(Collectors.groupingBy(Measurement::getNearestFiveMinutesForward))
-                .values()
-                .stream()
-                .map(findLastMeasurement())
-                .sorted()
-                .collect(Collectors.toList());
-    }
-
-    private Map<MeasurementType, List<Measurement>> getMeasurementTypeListMap(final List<Future<TreadTask>> futures) {
-        return futures.stream()
-                .map(this::getResponseFromFuture)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .peek(treadTask -> log.info("Data type processed: " + treadTask.measurementType() + " in quantity " + treadTask.measurements().size()))
-                .collect
-                        (Collectors.toMap
-                                (
-                                        TreadTask::measurementType,
-                                        TreadTask::measurements,
-                                        (oldValue, newValue) -> newValue,
-                                        () -> new EnumMap<>(MeasurementType.class)
-                                )
-                        );
-    }
-
-    private Optional<TreadTask> getResponseFromFuture(Future<TreadTask> future) {
+    private Optional<ThreadTask> getResponseFromFuture(Future<ThreadTask> future) {
         try {
             return Optional.ofNullable(future.get());
         } catch (InterruptedException | ExecutionException e) {

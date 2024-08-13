@@ -21,11 +21,15 @@ public abstract class CommonProcessor {
         if (canNotProcess(unsampledMeasurements))
             return Collections.emptyList();
 
-        List<Measurement> filteredMeasurements = unsampledMeasurements.stream()
-                .filter(measurement -> measurement.getTimestamp().isAfter(startOfSampling))
-                .collect(Collectors.toList());
+        List<Measurement> filteredMeasurements = filterByTimeOfSampling(unsampledMeasurements, startOfSampling);
 
         return MeasurementUtils.updateRoundedTimestampsForward(filteredMeasurements);
+    }
+
+    private List<Measurement> filterByTimeOfSampling(List<Measurement> unsampledMeasurements, Instant startOfSampling) {
+        return unsampledMeasurements.stream()
+                .filter(measurement -> measurement.getTimestamp().isAfter(startOfSampling))
+                .collect(Collectors.toList());
     }
 
     protected boolean canNotProcess(final List<Measurement> unsampledMeasurements) {
@@ -33,7 +37,8 @@ public abstract class CommonProcessor {
     }
 
     protected Map<MeasurementType, List<Measurement>> groupAndProcessMeasurements(List<Measurement> measurements) {
-        return measurements.stream()
+        return measurements
+                .stream()
                 .collect(
                         Collectors.groupingBy
                                 (
